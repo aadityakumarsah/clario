@@ -1,21 +1,22 @@
-🧠 Clario: Your Gen Z AI Bestie
-Clario is your personal, private AI buddy designed to help you navigate brain fog, anxiety, and loneliness. Unlike a regular therapist or a judgmental friend, Clario talks back in Gen Z slang to keep things real while providing genuine guidance for your mental well-being.
+### Clario
+Clario is a private, voice-first companion for reflection and emotional clarity. Many people cannot keep a regular written journal or access therapy when they need it. Nights and off-hours are when distress often hits hardest, yet professionals are rarely available—and not everyone wants to type into a screen or keep a handwritten log when they need to get things out. Clario offers a structured, confidential space to speak freely, slow down, and make sense of stress, low mood, or overload—without replacing professional care when that is available to you.
 
-🌟 Features
-Gen Z Personality: No stiff "AI-speak." Clario keeps it 100.
+### Features
+Guided reflection: A calm, conversational flow that helps you put words to what you are feeling.
 
-Privacy First: Built on Supabase for secure, private conversations.
+Privacy first: Built on Supabase for authentication and data practices designed around user privacy.
 
-Voice Integration: Talk to your buddy naturally.
+Voice journaling: Speak naturally; Clario listens and helps you trace patterns over time.
 
-Mind Refreshment: Specifically tailored to combat burnout and depression.
-📸 Screenshots:
-![Alt text](/public/main.png?raw=true "main")
-![Alt text](/public/auth.png?raw=true "auth")
-![Alt text](/public/intro.png?raw=true "intro")
-![Alt text](/public/voice.png?raw=true "voice")
+Support for everyday mental load: Useful for burnout, anxiety, and loneliness when you need an outlet between—or instead of—formal support options.  
 
-🛠 Tech Stack
+## Screenshots:
+Alt text
+Alt text
+Alt text
+Alt text
+
+### Tech Stack
 Frontend: Vite, React, Tailwind CSS
 
 Backend: Python (FastAPI/Flask), PostgreSQL
@@ -24,44 +25,23 @@ Database & Auth: Supabase
 
 AI Engine: Google Gemini AI
 
-1. frontend setup
-cd clario-frontend
 
-# Install dependencies
-npm i
+### Environment Variables
 
-# Create a .env file and add your keys:
-# VITE_SUPABASE_URL=your_url
-# VITE_SUPABASE_PUBLISHABLE_KEY=your_key
-# VITE_BACKEND_BASE_URL=http://localhost:8000
+The environment variable keys required for both the frontend and backend can be found in:
 
-# Run the dev server
-npm run dev
+- `clario-frontend/.env`
+- `clario-backend/.env`
 
-2.backend setup
-
-cd clario-backend
-
-# Configure your environment variables in .env:
-# POSTGRES_USER=your_user
-# POSTGRES_PASSWORD=your_password
-# POSTGRES_DB='clario'
-# POSTGRES_PORT=5432
-# POSTGRES_HOST='localhost'
-# SECRET_KEY=your_secret
-# SUPABASE_URL=your_supabase_url
-# SUPABASE_SECRET_KEY=your_supabase_key
-# GEMINI_API_KEY=your_gemini_key
-
-# Run the application
-python run.py
+**Note:** For security, the actual values of these environment variables should be obtained from the `clario_env.txt` file, which is provided in the project's shared Google Drive folder.
 
 
-🤝 Contributors
-Meet the team behind Clario:
 
-Aroma KC
 
-Suwubham
 
-Aaditya Kumar Sah
+### Contributors
+Aaditya Sah
+Shubham Shakya
+Subash Khatri
+Suyasa Sigdel
+Swastik Bhandari
