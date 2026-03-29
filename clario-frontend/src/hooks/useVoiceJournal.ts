@@ -3,6 +3,10 @@ import { MediaHandler, GeminiClient } from "../lib/gemini";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import { startVoiceSession, generateSessionReport, SessionDetailData } from "../lib/api";
+import {
+  preferredLanguageGreetingPrefix,
+  type SessionLanguage,
+} from "../lib/sessionLanguage";
 
 export function useVoiceJournal() {
   const { session } = useAuth();
@@ -13,6 +17,7 @@ export function useVoiceJournal() {
   const mediaHandlerRef = useRef<MediaHandler | null>(null);
   const geminiClientRef = useRef<GeminiClient | null>(null);
   const voiceSessionIdRef = useRef<string | null>(null);
+  const greetingRef = useRef<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [reportData, setReportData] = useState<SessionDetailData | null>(null);
 
@@ -29,10 +34,12 @@ export function useVoiceJournal() {
           testProfile: "debug-agent-metadata-001",
           clientBuild: "voice-journal",
         });
-        geminiClientRef.current?.sendText(
-          `System: Start by greeting the user in english with whats up brother i know you are fuckedup but don't overthink im here for your mentel peace.`,
-          { persist: false }
-        );
+        if (greetingRef.current) {
+          geminiClientRef.current?.sendText(
+            `System: ${greetingRef.current}`,
+            { persist: false }
+          );
+        }
       },
       onMessage: (event) => {
         if (typeof event.data === "string") {
@@ -68,39 +75,49 @@ export function useVoiceJournal() {
     };
   }, []);
 
-  const startSession = useCallback(async () => {
-    if (!mediaHandlerRef.current || !geminiClientRef.current) return;
+  const startSession = useCallback(
+    async (
+      persona?: string,
+      voice?: string,
+      greeting?: string,
+      language: SessionLanguage = "en",
+    ) => {
+      if (!mediaHandlerRef.current || !geminiClientRef.current) return;
+      const prefix = preferredLanguageGreetingPrefix(language);
+      greetingRef.current = greeting ? `${prefix}${greeting}` : null;
 
-    const token = session?.access_token;
-    if (!token) {
-      toast.error("Sign in to start a session.");
-      return;
-    }
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("Sign in to start a session.");
+        return;
+      }
 
-    try {
-      setIsConnecting(true);
-      const { session_id } = await startVoiceSession();
-      voiceSessionIdRef.current = session_id;
+      try {
+        setIsConnecting(true);
+        const { session_id } = await startVoiceSession();
+        voiceSessionIdRef.current = session_id;
 
-      await mediaHandlerRef.current.initializeAudio();
-      geminiClientRef.current.connect(token);
+        await mediaHandlerRef.current.initializeAudio();
+        geminiClientRef.current.connect(token, voice, persona, language);
 
-      await mediaHandlerRef.current.startAudio((data) => {
-        if (geminiClientRef.current?.isConnected()) {
-          geminiClientRef.current.send(data);
-        }
-      });
-      setIsRecording(true);
-      setIsConnecting(false);
-    } catch (e) {
-      voiceSessionIdRef.current = null;
-      const message =
-        e instanceof Error ? e.message : "Could not start voice session.";
-      toast.error(message);
-      setIsRecording(false);
-      setIsConnecting(false);
-    }
-  }, [session]);
+        await mediaHandlerRef.current.startAudio((data) => {
+          if (geminiClientRef.current?.isConnected()) {
+            geminiClientRef.current.send(data);
+          }
+        });
+        setIsRecording(true);
+        setIsConnecting(false);
+      } catch (e) {
+        voiceSessionIdRef.current = null;
+        const message =
+          e instanceof Error ? e.message : "Could not start voice session.";
+        toast.error(message);
+        setIsRecording(false);
+        setIsConnecting(false);
+      }
+    },
+    [session],
+  );
 
   const endSession = useCallback(async () => {
     const sessionId = voiceSessionIdRef.current;

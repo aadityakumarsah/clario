@@ -8,20 +8,111 @@ logger = logging.getLogger(__name__)
 from google import genai
 from google.genai import types
 
-_BASE_AGENT_PROMPT_PATH = (
-    Path(__file__).resolve().parent.parent / "ai" / "prompts" / "base_agent.md"
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "ai" / "prompts"
+_BASE_AGENT_PROMPT_PATH = _PROMPTS_DIR / "base_agent.md"
+
+# Frontend persona ids -> prompt filenames under app/ai/prompts/
+_PERSONA_PROMPT_FILES: dict[str, str] = {
+    "vanilla": "base_agent.md",
+    "chaotic_friend": "chaotic_friend.md",
+    "older_sibling": "older_sibling.md",
+    "chill_overthinker": "chill_overthinker.md",
+    "insight_coach": "insight_coach.md",
+    "calm_observer": "calm_obserber.md",
+}
+
+# Gemini Live prebuilt voices (aligned with frontend VOICES)
+_ALLOWED_VOICES = frozenset(
+    {"Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede"}
 )
+_DEFAULT_VOICE = "Zephyr"
+
+# Session UI language (query ?lang=en|ne)
+_ALLOWED_LANGS = frozenset({"en", "ne"})
+_DEFAULT_LANG = "en"
 
 
 def _load_base_agent_prompt() -> str:
     return _BASE_AGENT_PROMPT_PATH.read_text(encoding="utf-8")
 
 
+def _resolve_system_prompt(persona: str | None) -> str:
+    if not persona:
+        return _load_base_agent_prompt()
+    key = persona.strip()
+    fname = _PERSONA_PROMPT_FILES.get(key)
+    if not fname:
+        logger.warning("Unknown persona id %r, using base_agent.md", key)
+        return _load_base_agent_prompt()
+    path = _PROMPTS_DIR / fname
+    if not path.is_file():
+        logger.warning("Persona prompt missing %s, using base_agent.md", path)
+        return _load_base_agent_prompt()
+    return path.read_text(encoding="utf-8")
+
+
+def _resolve_voice_name(voice: str | None) -> str:
+    if not voice:
+        return _DEFAULT_VOICE
+    name = voice.strip()
+    if name in _ALLOWED_VOICES:
+        return name
+    logger.warning("Unsupported voice %r, using %s", name, _DEFAULT_VOICE)
+    return _DEFAULT_VOICE
+
+
+def _resolve_language(lang: str | None) -> str:
+    if not lang:
+        return _DEFAULT_LANG
+    key = lang.strip().lower()
+    if key in _ALLOWED_LANGS:
+        return key
+    logger.warning("Unknown lang %r, using %s", lang, _DEFAULT_LANG)
+    return _DEFAULT_LANG
+
+
+def _language_preference_block(lang: str) -> str:
+    if lang == "ne":
+        return """
+
+<preferred_language>
+The user's preferred language for this session is: Nepali.
+Conduct the entire conversation in Nepali: listen, think, and respond only in natural Nepali as spoken in Nepal.
+Use authentic Nepali pronunciation and intonation; avoid a Westernized or "foreign learner" delivery when speaking Nepali.
+If the user explicitly switches to another language mid-session, follow their lead for the rest of that turn onward.
+</preferred_language>
+"""
+    return """
+
+<preferred_language>
+The user's preferred language for this session is: English.
+Conduct the entire conversation in English: listen, think, and respond only in clear, natural English.
+If the user explicitly switches to another language mid-session, follow their lead for the rest of that turn onward.
+</preferred_language>
+"""
+
+
+def _build_full_system_prompt(persona: str | None, lang: str | None) -> str:
+    resolved_lang = _resolve_language(lang)
+    base = _resolve_system_prompt(persona)
+    return base + _language_preference_block(resolved_lang)
+
+
 class GeminiLive:
     """
     Handles the interaction with the Gemini Live API.
     """
-    def __init__(self, api_key, model, input_sample_rate, tools=None, tool_mapping=None):
+    def __init__(
+        self,
+        api_key,
+        model,
+        input_sample_rate,
+        tools=None,
+        tool_mapping=None,
+        persona: str | None = None,
+        voice_name: str | None = None,
+        language: str | None = None,
+    ):
         """
         Initializes the GeminiLive client.
 
@@ -31,6 +122,9 @@ class GeminiLive:
             input_sample_rate (int): The sample rate for audio input.
             tools (list, optional): List of tools to enable. Defaults to None.
             tool_mapping (dict, optional): Mapping of tool names to functions. Defaults to None.
+            persona (str, optional): Frontend persona id; selects prompt file under app/ai/prompts/.
+            voice_name (str, optional): Gemini prebuilt voice name for TTS.
+            language (str, optional): Session language code, ``en`` or ``ne`` (query ``lang``).
         """
         self.api_key = api_key
         self.model = model
@@ -38,20 +132,29 @@ class GeminiLive:
         self.client = genai.Client(api_key=api_key)
         self.tools = tools or []
         self.tool_mapping = tool_mapping or {}
+        self.persona = persona
+        self.voice_name = _resolve_voice_name(voice_name)
+        self.language = _resolve_language(language)
+        self._system_instruction_text = _build_full_system_prompt(persona, language)
 
     async def start_session(self, audio_input_queue, video_input_queue, text_input_queue, audio_output_callback, audio_interrupt_callback=None):
-        
+        logger.info(
+            "Gemini Live session config | persona=%r voice=%s lang=%s",
+            self.persona,
+            self.voice_name,
+            self.language,
+        )
         config = types.LiveConnectConfig(
             response_modalities=[types.Modality.AUDIO],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Zephyr"
+                        voice_name=self.voice_name
                     )
                 )
             ),
             system_instruction=types.Content(
-                parts=[types.Part(text=_load_base_agent_prompt())]
+                parts=[types.Part(text=self._system_instruction_text)]
             ),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             output_audio_transcription=types.AudioTranscriptionConfig(),

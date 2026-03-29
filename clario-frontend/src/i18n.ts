@@ -7,6 +7,7 @@ const resources = {
       nav: {
         home: "Home",
         about: "About",
+        dashboard: "Dashboard",
         journal: "Journal",
         settings: "Settings",
         signin: "Sign In",

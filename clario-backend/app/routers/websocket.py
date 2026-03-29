@@ -113,8 +113,11 @@ async def _finalize_voice_session(
 async def websocket_endpoint(
     websocket: WebSocket,
     token: Optional[str] = Query(default=None),
+    persona: Optional[str] = Query(default=None),
+    voice: Optional[str] = Query(default=None),
+    lang: Optional[str] = Query(default=None),
 ):
-    """Gemini Live bridge (Supabase JWT via ?token=)."""
+    """Gemini Live bridge (JWT ?token=; optional ?persona= ?voice= ?lang=en|ne)."""
     if not token:
         await websocket.close(code=4001, reason="Missing auth token")
         return
@@ -125,7 +128,13 @@ async def websocket_endpoint(
         return
 
     await websocket.accept()
-    logger.info("WebSocket connection accepted for user {}", user.get("id"))
+    logger.info(
+        "WebSocket connection accepted for user {} | persona={} | voice={} | lang={}",
+        user.get("id"),
+        persona,
+        voice,
+        lang,
+    )
 
     user_id = str(user.get("id") or "")
     session_holder: dict[str, str | None] = {"id": None}
@@ -188,6 +197,9 @@ async def websocket_endpoint(
         api_key=settings.GEMINI_API_KEY,
         model=settings.GEMINI_MODEL,
         input_sample_rate=16000,
+        persona=persona,
+        voice_name=voice,
+        language=lang,
     )
 
     session_task: asyncio.Task | None = None

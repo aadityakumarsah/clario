@@ -172,11 +172,19 @@ export class GeminiClient {
     this.onError = config.onError || (() => {});
   }
 
-  connect(token?: string) {
+  connect(token?: string, voice?: string, persona?: string, lang?: string) {
     let wsUrl = `${import.meta.env.VITE_BACKEND_BASE_URL}/websocket/gemini/live`;
     wsUrl = wsUrl.replace("https://", "wss://").replace("http://", "ws://");
-    if (token) {
-      wsUrl += `?token=${encodeURIComponent(token)}`;
+    
+    const params = new URLSearchParams();
+    if (token) params.append("token", token);
+    if (voice) params.append("voice", voice);
+    if (persona) params.append("persona", persona);
+    if (lang) params.append("lang", lang);
+    
+    const queryString = params.toString();
+    if (queryString) {
+      wsUrl += `?${queryString}`;
     }
 
     console.log("wsUrl", wsUrl);

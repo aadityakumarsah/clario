@@ -15,11 +15,23 @@ import {
   computeJournalStreak,
   type PastSessionCardModel,
 } from "@/lib/sessionReportView";
+import { SESSION_LANGUAGES, type SessionLanguage } from "@/lib/sessionLanguage";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
+
+const PERSONAS = [
+  { id: "vanilla", name: "Vanilla", desc: "Default Clario style—friendly, chatty, balanced journaling partner", greeting: "Open with a friendly, casual hello, then ask how their day was. Match the warm, light tone from your main instructions—no extra persona layer." },
+  { id: "chaotic_friend", name: "Chaotic Friend", desc: "Unfiltered, dramatic, and will absolutely call you out (with love)", greeting: "Open with a quick warm hello in your playful style, then ask how their day was. Keep it light—no monologue." },
+  { id: "older_sibling", name: "Older Sibling", desc: "Caring, protective, and gently calls you out when needed", greeting: "Open with a warm, casual check-in, then ask how their day was. Sound like you actually care, not like an interrogation." },
+  { id: "chill_overthinker", name: "Chill Overthinker", desc: "Gets your spirals because they spiral too", greeting: "Open in a relaxed, understanding tone, then ask how their day was. No pressure—just genuine curiosity." },
+  { id: "insight_coach", name: "Insight Coach", desc: "Cuts through the noise and shows you the pattern", greeting: "Open calmly and kindly, then ask how their day was. You can add one short follow-up like what felt most important about it." },
+  { id: "calm_observer", name: "Calm Observer", desc: "Quiet, grounded, and sees what you're not saying", greeting: "Open with a soft, brief greeting, then simply ask how their day was. Stay unhurried and present." },
+];
+
+const VOICES = ["Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede"];
 
 const Dashboard = () => {
   const { t } = useTranslation();
@@ -39,6 +51,9 @@ const Dashboard = () => {
   const [pastSessionsLoading, setPastSessionsLoading] = useState(true);
   const [pastSessionsError, setPastSessionsError] = useState<string | null>(null);
   const [archiveReportSession, setArchiveReportSession] = useState<SessionDetailData | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState(PERSONAS[0].id);
+  const [selectedVoice, setSelectedVoice] = useState(VOICES[0]);
+  const [selectedLanguage, setSelectedLanguage] = useState<SessionLanguage>("en");
 
   const currentStreak = useMemo(
     () => computeJournalStreak(pastCards.map((c) => c.detail)),
@@ -93,6 +108,29 @@ const Dashboard = () => {
     [moodTrendData],
   );
   const hasNoSessions = !pastSessionsLoading && !pastSessionsError && pastCards.length === 0;
+  const showStreakCard = currentStreak > 0;
+
+  const heatmapDays = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const result = [];
+    const DAYS_TO_SHOW = 35; // 5 weeks x 7 days
+    
+    for (let i = DAYS_TO_SHOW - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const dTime = d.getTime();
+      
+      const sessionCount = pastCards.filter(c => {
+        const targetDate = new Date(c.detail.created_at);
+        targetDate.setHours(0, 0, 0, 0);
+        return targetDate.getTime() === dTime;
+      }).length;
+      
+      result.push({ date: d, count: sessionCount });
+    }
+    return result;
+  }, [pastCards]);
 
   const headerDateLabel = useMemo(() => {
     try {
@@ -135,7 +173,7 @@ const Dashboard = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className={`${hasNoSessions ? "lg:col-span-3" : "lg:col-span-2"} p-8 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center min-h-[280px] relative overflow-hidden`}
+              className={`${hasNoSessions || !showStreakCard ? "lg:col-span-3" : "lg:col-span-2"} p-8 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center min-h-[280px] relative overflow-hidden`}
             >
               <div className="absolute inset-0 opacity-30" style={{ background: "var(--gradient-glow)" }} />
               <div className="relative z-10 flex flex-col items-center text-center">
@@ -143,18 +181,62 @@ const Dashboard = () => {
                   Ready when you are
                 </p>
                 <button
-                  onClick={startSession}
+                  onClick={() => {
+                    const selectedPersonaObj = PERSONAS.find(p => p.id === selectedPersona) || PERSONAS[0];
+                    startSession(selectedPersona, selectedVoice, selectedPersonaObj.greeting, selectedLanguage);
+                  }}
                   className="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 bg-primary/10 text-primary hover:bg-primary/20 hover:scale-105 my-2"
                 >
                   <Mic className="w-8 h-8" />
                 </button>
-                <p className="font-body text-sm text-muted-foreground mt-4">
+                <p className="font-body text-sm text-muted-foreground mt-3 mb-8">
                   Tap to start your reflection
                 </p>
+
+                <div className="flex flex-col gap-5 relative z-20 w-full max-w-sm px-4">
+                  <div className="flex flex-col items-start gap-1.5 w-full">
+                    <label className="text-[10px] uppercase font-body text-muted-foreground tracking-widest pl-1">Agent Persona</label>
+                    <select 
+                      value={selectedPersona} 
+                      onChange={e => setSelectedPersona(e.target.value)}
+                      className="bg-background border border-border/50 text-foreground rounded-xl px-3 py-2.5 text-sm font-body cursor-pointer hover:border-primary/40 focus:outline-none focus:ring-1 focus:border-primary/80 transition-all w-full"
+                    >
+                      {PERSONAS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <p className="font-body text-[11px] text-muted-foreground pl-1 mt-0.5 text-left leading-relaxed">
+                      {PERSONAS.find(p => p.id === selectedPersona)?.desc}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-start gap-1.5 w-full">
+                    <label className="text-[10px] uppercase font-body text-muted-foreground tracking-widest pl-1">Voice</label>
+                    <select 
+                      value={selectedVoice} 
+                      onChange={e => setSelectedVoice(e.target.value)}
+                      className="bg-background border border-border/50 text-foreground rounded-xl px-3 py-2.5 text-sm font-body cursor-pointer hover:border-primary/40 focus:outline-none focus:ring-1 focus:border-primary/80 transition-all w-full"
+                    >
+                      {VOICES.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col items-start gap-1.5 w-full">
+                    <label className="text-[10px] uppercase font-body text-muted-foreground tracking-widest pl-1">Language</label>
+                    <select
+                      value={selectedLanguage}
+                      onChange={(e) => setSelectedLanguage(e.target.value as SessionLanguage)}
+                      className="bg-background border border-border/50 text-foreground rounded-xl px-3 py-2.5 text-sm font-body cursor-pointer hover:border-primary/40 focus:outline-none focus:ring-1 focus:border-primary/80 transition-all w-full"
+                    >
+                      {SESSION_LANGUAGES.map((L) => (
+                        <option key={L.id} value={L.id}>
+                          {L.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
             </motion.div>
 
-            {!hasNoSessions && (
+            {/* Streak Tracker & Heatmap — whole card (incl. heatmap) only when streak is active */}
+            {showStreakCard && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -186,20 +268,33 @@ const Dashboard = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.8 }}
-                  className="font-display text-4xl font-semibold text-foreground"
+                  className="font-display text-4xl font-semibold text-foreground flex items-center justify-center"
                 >
                   {currentStreak}
                 </motion.span>
-                <p className="font-body text-xs text-muted-foreground mt-1">day streak</p>
-                <p className="font-body text-xs text-muted-foreground mt-2 max-w-[11rem] leading-snug">
-                  {pastSessionsLoading
-                    ? "…"
-                    : currentStreak === 0
-                      ? "Days with a saved report, in a row."
-                      : currentStreak >= 7
-                        ? "Strong streak — keep going."
-                        : "Keep logging to grow your streak."}
-                </p>
+                <p className="font-body text-xs text-muted-foreground mt-1 mb-8">day streak</p>
+
+                {!pastSessionsLoading && (
+                  <div className="flex flex-col items-center w-full mt-2">
+                    <p className="font-body text-[10px] text-muted-foreground uppercase tracking-widest mb-3 text-left w-full pl-2">Last 35 Days</p>
+                    <div className="grid grid-cols-7 gap-1.5 mb-2 w-full place-items-center sm:px-2">
+                      {heatmapDays.map((day, idx) => {
+                        const shade = day.count > 0 ? "bg-primary border-primary/20 shadow-[0_0_8px_rgba(var(--primary),0.2)]" : "bg-primary/10 border-border/20";
+                        return (
+                          <div 
+                            key={idx} 
+                            title={`${day.date.toLocaleDateString(undefined, {month: 'long', day: 'numeric'})}: ${day.count > 0 ? 'Completed' : 'Missed'}`}
+                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[4px] border ${shade} transition-all duration-300 hover:scale-110`}
+                          />
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-between w-full text-[9px] text-muted-foreground uppercase tracking-widest px-2 sm:px-3 pt-1">
+                      <span>{heatmapDays[0].date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                      <span>Today</span>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </div>
@@ -487,9 +582,11 @@ const Dashboard = () => {
                               Mood: {row.moodScore.toFixed(1)}/10
                             </span>
                           )}
-                          <span className="font-body text-xs text-accent flex items-center gap-1">
-                            <Flame className="w-3 h-3" /> {currentStreak}
-                          </span>
+                          {currentStreak > 0 && (
+                            <span className="font-body text-xs text-accent flex items-center gap-1">
+                              <Flame className="w-3 h-3" /> {currentStreak}
+                            </span>
+                          )}
                         </div>
                         <p className="font-body text-sm text-muted-foreground leading-relaxed line-clamp-3">
                           {row.summary}
