@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import websocket_router, auth_router
+from app.routers import websocket_router, auth_router, settings_router
 
 app = FastAPI()
 
@@ -13,6 +13,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(settings_router)
 app.include_router(websocket_router)
 
 @app.get("/", tags=['Root'])
