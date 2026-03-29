@@ -9,11 +9,11 @@ const fadeUp = {
 };
 
 const team = [
-  { name: "Alex Chen", title: "Product Lead", bio: "Former meditation app founder. Believes technology should quiet the mind, not clutter it." },
-  { name: "Priya Desai", title: "AI Engineer", bio: "NLP researcher turned builder. Specializes in empathetic language models and sentiment analysis." },
-  { name: "Mateo Rossi", title: "Frontend Developer", bio: "Obsessed with micro-interactions and accessibility. Every pixel should feel intentional." },
-  { name: "Lina Kapoor", title: "UX/UI Designer", bio: "Trained in cognitive psychology. Designs interfaces that feel like conversations, not forms." },
-  { name: "Jamal Thompson", title: "Backend Developer", bio: "Security-first engineer. Ensures your most intimate reflections remain yours alone." },
+  { name: "Aaditya Kumar Sah", title: "Co-Founder", bio: "Aaditya is the co-founder of Clario. He is a software engineer and a mental health advocate." },
+  { name: "Shubham Shakya", title: "Co-Founder", bio: "Shubham is the co-founder of Clario. He is a software engineer and a mental health advocate." },
+  { name: "Subash Khatri", title: "Co-Founder", bio: "Subash is the co-founder of Clario. He is a software engineer and a mental health advocate." },
+  { name: "Suyasa Sigdel", title: "Co-Founder", bio: "Suyasa is the co-founder of Clario. He is a software engineer and a mental health advocate." },
+  { name: "Swastik Bhandari", title: "Co-Founder", bio: "Swastik is the co-founder of Clario. He is a software engineer and a mental health advocate." },
 ];
 
 const About = () => {
