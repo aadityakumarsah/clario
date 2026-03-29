@@ -13,6 +13,7 @@ import Journal from "./pages/Journal.tsx";
 import Settings from "./pages/Settings.tsx";
 import Login from "./pages/Login.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Plan from "./components/Plan.tsx";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
                 }
               />
               <Route path="*" element={<NotFound />} />
+              <Route path="/plan" element={<Plan/>} />
             </Routes>
           </AuthProvider>
         </BrowserRouter>

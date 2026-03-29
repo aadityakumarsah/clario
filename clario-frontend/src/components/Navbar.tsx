@@ -30,6 +30,7 @@ const Navbar = () => {
         { label: t("nav.dashboard"), path: "/dashboard" },
         { label: t("nav.journal"), path: "/journal" },
         { label: t("nav.settings"), path: "/settings" },
+        {label: t("Plan"), path: "/plan"}
       ]
     : [
         { label: t("nav.home"), path: "/" },
