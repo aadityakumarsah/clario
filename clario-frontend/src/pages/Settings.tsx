@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, User, Clock, Shield, Save, Loader2 } from "lucide-react";
+import { Bell, User, Clock, Shield, Save, Loader2, Sun, Moon, Languages } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
+import { useTheme } from "@/hooks/useTheme";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { getSettings, patchSettings } from "@/lib/api";
 import type { SettingsData } from "@/lib/api";
@@ -12,6 +15,11 @@ const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
+
+const LANGUAGES = [
+  { code: "en", native: "English" },
+  { code: "ne", native: "नेपाली" },
+];
 
 type FormState = Pick<
   SettingsData,
@@ -43,6 +51,9 @@ function diff(form: FormState, remote: SettingsData): Partial<FormState> {
 
 const Settings = () => {
   const queryClient = useQueryClient();
+  const { theme, setTheme } = useTheme();
+  const { t } = useTranslation();
+  const [currentLang, setCurrentLang] = useState(i18n.language || "en");
 
   const { data: remote, isLoading } = useQuery({
     queryKey: ["settings"],
@@ -75,7 +86,7 @@ const Settings = () => {
     mutationFn: () => patchSettings(diff(form, remote!)),
     onSuccess: (updated) => {
       queryClient.setQueryData(["settings"], updated);
-      toast.success("Settings saved");
+      toast.success(t("settings.saved"));
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -85,20 +96,26 @@ const Settings = () => {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const handleLanguageChange = (code: string) => {
+    setCurrentLang(code);
+    i18n.changeLanguage(code);
+    localStorage.setItem("clario-lang", code);
+  };
+
   const notifications = [
     {
-      label: "Daily reminder",
-      desc: "Gentle nudge to journal each day",
+      label: t("settings.daily_reminder"),
+      desc: t("settings.daily_reminder_desc"),
       key: "daily_reminder" as const,
     },
     {
-      label: "Streak notifications",
-      desc: "Celebrate milestones and streaks",
+      label: t("settings.streak_notifs"),
+      desc: t("settings.streak_notifs_desc"),
       key: "streak_notifications" as const,
     },
     {
-      label: "Weekly digest",
-      desc: "Summary of your week's reflections",
+      label: t("settings.weekly_digest"),
+      desc: t("settings.weekly_digest_desc"),
       key: "weekly_digest" as const,
     },
   ];
@@ -116,13 +133,13 @@ const Settings = () => {
             variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
           >
             <motion.p variants={fadeUp} className="font-body text-sm text-muted-foreground">
-              Account
+              {t("settings.account")}
             </motion.p>
             <motion.h1
               variants={fadeUp}
               className="font-display text-3xl md:text-4xl font-light text-foreground mt-1 mb-10"
             >
-              Your <span className="italic">settings</span>
+              {t("settings.title_1")} <span className="italic">{t("settings.title_2")}</span>
             </motion.h1>
           </motion.div>
 
@@ -140,12 +157,12 @@ const Settings = () => {
               >
                 <div className="flex items-center gap-3 mb-6">
                   <User className="w-4 h-4 text-primary" />
-                  <h2 className="font-display text-lg font-semibold text-foreground">Profile</h2>
+                  <h2 className="font-display text-lg font-semibold text-foreground">{t("settings.profile")}</h2>
                 </div>
                 <div className="space-y-4">
                   <div>
                     <label className="font-body text-xs uppercase tracking-widest text-muted-foreground block mb-2">
-                      Name
+                      {t("settings.name")}
                     </label>
                     <input
                       type="text"
@@ -156,7 +173,7 @@ const Settings = () => {
                   </div>
                   <div>
                     <label className="font-body text-xs uppercase tracking-widest text-muted-foreground block mb-2">
-                      Email
+                      {t("settings.email")}
                     </label>
                     <input
                       type="email"
@@ -171,13 +188,89 @@ const Settings = () => {
               <motion.section
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="p-6 rounded-2xl bg-card border border-border/50 mb-6"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  {theme === "dark" ? (
+                    <Moon className="w-4 h-4 text-primary" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-primary" />
+                  )}
+                  <h2 className="font-display text-lg font-semibold text-foreground">{t("settings.appearance")}</h2>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+                    <div>
+                      <p className="font-body text-sm font-medium text-foreground">{t("settings.appearance")}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 w-full sm:w-[270px]">
+                      <button
+                        type="button"
+                        onClick={() => setTheme("light")}
+                        className={`w-full px-4 py-2 rounded-xl border text-sm font-body transition-colors flex items-center justify-center gap-2 ${
+                          theme === "light"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border/50 hover:border-primary/40"
+                        }`}
+                      >
+                        <Sun className="w-4 h-4" />
+                        {t("settings.light")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme("dark")}
+                        className={`w-full px-4 py-2 rounded-xl border text-sm font-body transition-colors flex items-center justify-center gap-2 ${
+                          theme === "dark"
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border/50 hover:border-primary/40"
+                        }`}
+                      >
+                        <Moon className="w-4 h-4" />
+                        {t("settings.dark")}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-border/40 pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2">
+                    <div className="flex items-start gap-2">
+                      <Languages className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-body text-sm font-medium text-foreground">{t("settings.language")}</p>
+                        <p className="font-body text-xs text-muted-foreground">{t("settings.language_desc")}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 w-full sm:w-[270px]">
+                      {LANGUAGES.map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => handleLanguageChange(lang.code)}
+                          className={`w-full px-4 py-2 rounded-xl font-body text-sm transition-all duration-200 border ${
+                            currentLang === lang.code
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-border/50 hover:border-primary/40"
+                          }`}
+                        >
+                          {lang.native}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.section>
+
+              <motion.section
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
                 className="p-6 rounded-2xl bg-card border border-border/50 mb-6"
               >
                 <div className="flex items-center gap-3 mb-6">
                   <Bell className="w-4 h-4 text-primary" />
                   <h2 className="font-display text-lg font-semibold text-foreground">
-                    Notifications
+                    {t("settings.notifications")}
                   </h2>
                 </div>
                 <div className="space-y-4">
@@ -215,7 +308,7 @@ const Settings = () => {
                 <div className="flex items-center gap-3 mb-6">
                   <Clock className="w-4 h-4 text-primary" />
                   <h2 className="font-display text-lg font-semibold text-foreground">
-                    Reminder Time
+                    {t("settings.reminder_time")}
                   </h2>
                 </div>
                 <div className="flex items-end justify-between gap-4">
@@ -239,7 +332,7 @@ const Settings = () => {
                           ) : (
                             <Save className="w-4 h-4 mr-2" />
                           )}
-                          Save changes
+                          {t("settings.save_changes")}
                         </Button>
                       </motion.div>
                     )}
@@ -255,12 +348,10 @@ const Settings = () => {
               >
                 <div className="flex items-center gap-3 mb-4">
                   <Shield className="w-4 h-4 text-primary" />
-                  <h2 className="font-display text-lg font-semibold text-foreground">Privacy</h2>
+                  <h2 className="font-display text-lg font-semibold text-foreground">{t("settings.privacy")}</h2>
                 </div>
                 <p className="font-body text-sm text-muted-foreground leading-relaxed">
-                  Your voice recordings are processed on-device and never stored in readable form.
-                  Only anonymized mood data is used to generate insights. You can request full data
-                  deletion at any time.
+                  {t("settings.privacy_desc")}
                 </p>
               </motion.section>
             </>

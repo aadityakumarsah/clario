@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 type Mode = "login" | "signup";
 
 export default function Login() {
+  const { t } = useTranslation();
   const { session } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -34,13 +36,13 @@ export default function Login() {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
         toast({
-          title: "Check your email",
-          description: "We sent you a confirmation link.",
+          title: t("login.check_email_title"),
+          description: t("login.check_email_desc"),
         });
       }
     } catch (err: any) {
       toast({
-        title: "Error",
+        title: t("login.error_title"),
         description: err.message,
         variant: "destructive",
       });
@@ -60,13 +62,13 @@ export default function Login() {
         <div className="text-center space-y-1">
           <h1 className="font-display text-3xl font-semibold tracking-tight">Clario</h1>
           <p className="text-muted-foreground text-sm">
-            {mode === "login" ? "Sign in to your account" : "Create a new account"}
+            {mode === "login" ? t("login.signin_subtitle") : t("login.signup_subtitle")}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("login.email")}</Label>
             <Input
               id="email"
               type="email"
@@ -77,7 +79,7 @@ export default function Login() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("login.password")}</Label>
             <Input
               id="password"
               type="password"
@@ -89,18 +91,18 @@ export default function Login() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Please wait..." : mode === "login" ? "Sign in" : "Sign up"}
+            {loading ? t("login.wait") : mode === "login" ? t("login.signin") : t("login.signup")}
           </Button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
-          {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
+          {mode === "login" ? t("login.no_account") : t("login.have_account")}{" "}
           <button
             type="button"
             onClick={() => setMode(mode === "login" ? "signup" : "login")}
             className="text-primary hover:underline font-medium"
           >
-            {mode === "login" ? "Sign up" : "Sign in"}
+            {mode === "login" ? t("login.signup") : t("login.signin")}
           </button>
         </p>
       </motion.div>

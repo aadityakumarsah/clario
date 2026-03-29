@@ -129,6 +129,29 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .slim-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.5) hsl(var(--background));
+  }
+
+  .slim-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.45);
+    border-radius: 9999px;
+    border: 2px solid hsl(var(--background));
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.7);
+  }
 }
 
 @keyframes breathing {

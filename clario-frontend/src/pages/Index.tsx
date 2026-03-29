@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Mic, BarChart3, Flame, Sparkles } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import heroImage from "@/assets/hero-illustration.jpg";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -15,48 +16,36 @@ const fadeUp = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: "easeOut" } },
 };
 
-const features = [
-  {
-    icon: Mic,
-    title: "10–15 Min Voice Journaling",
-    description: "Speak freely. Clario listens, transcribes, and gently guides your reflection.",
-  },
-  {
-    icon: Sparkles,
-    title: "Daily Insights",
-    description: "Receive personalized observations about your patterns, growth, and emotional themes.",
-  },
-  {
-    icon: Flame,
-    title: "Streak Tracking",
-    description: "Build consistency with gentle nudges and milestone celebrations.",
-  },
-  {
-    icon: BarChart3,
-    title: "Mood & Emotion Trends",
-    description: "Visualize your emotional landscape over days, weeks, and months.",
-  },
-];
-
-const testimonials = [
-  {
-    quote: "Clario helped me notice patterns I'd been blind to for years. It's like having a wise friend who just listens.",
-    name: "Sarah M.",
-    role: "Therapist",
-  },
-  {
-    quote: "The voice-first approach removes all friction. I journal every morning now — 47 day streak and counting.",
-    name: "David K.",
-    role: "Software Engineer",
-  },
-  {
-    quote: "I finally understand my moods. The insights are thoughtful, never generic. This is what AI should be.",
-    name: "Elena R.",
-    role: "Graduate Student",
-  },
-];
-
 const Index = () => {
+  const { t } = useTranslation();
+  const featuresI18n = [
+    {
+      icon: Mic,
+      title: t("index.features.voice.title"),
+      description: t("index.features.voice.desc"),
+    },
+    {
+      icon: Sparkles,
+      title: t("index.features.insights.title"),
+      description: t("index.features.insights.desc"),
+    },
+    {
+      icon: Flame,
+      title: t("index.features.streak.title"),
+      description: t("index.features.streak.desc"),
+    },
+    {
+      icon: BarChart3,
+      title: t("index.features.mood.title"),
+      description: t("index.features.mood.desc"),
+    },
+  ];
+  const testimonialsI18n = [
+    { quote: t("index.testimonials.sarah.quote"), name: "Sarah M.", role: t("index.testimonials.sarah.role") },
+    { quote: t("index.testimonials.david.quote"), name: "David K.", role: t("index.testimonials.david.role") },
+    { quote: t("index.testimonials.elena.quote"), name: "Elena R.", role: t("index.testimonials.elena.role") },
+  ];
+
   return (
     <div className="min-h-screen bg-background relative">
       <div className="grain-overlay" />
@@ -77,18 +66,18 @@ const Index = () => {
         >
           <div className="space-y-8">
             <motion.p variants={fadeUp} className="font-body text-xs uppercase tracking-[0.3em] text-muted-foreground">
-              Voice-First AI Journal
+              {t("index.badge")}
             </motion.p>
             <motion.h1
               variants={fadeUp}
               className="font-display text-5xl md:text-7xl font-light leading-[0.95] text-foreground text-balance"
             >
-              Clarity through
+              {t("index.hero_h1_1")}
               <br />
-              <span className="font-semibold italic text-primary">reflection</span>
+              <span className="font-semibold italic text-primary">{t("index.hero_h1_2")}</span>
             </motion.h1>
             <motion.p variants={fadeUp} className="font-body text-lg text-muted-foreground max-w-md leading-relaxed">
-              Speak your thoughts. Clario listens, understands, and reveals the patterns beneath — helping you build emotional awareness, one day at a time.
+              {t("index.hero_desc")}
             </motion.p>
             <motion.div variants={fadeUp}>
               <Link
@@ -96,7 +85,7 @@ const Index = () => {
                 className="inline-flex items-center gap-2 px-8 py-4 bg-primary text-primary-foreground font-body text-sm font-medium tracking-wide rounded-full hover:opacity-90 transition-opacity duration-200 shadow-lg"
               >
                 <Mic className="w-4 h-4" />
-                Start Your Daily Reflection
+                {t("index.cta")}
               </Link>
             </motion.div>
           </div>
@@ -129,13 +118,13 @@ const Index = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">How it works</p>
+            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">{t("index.how_badge")}</p>
             <h2 className="font-display text-3xl md:text-5xl font-light text-foreground">
-              A gentler way to <span className="italic">know yourself</span>
+              {t("index.how_title_1")} <span className="italic">{t("index.how_title_2")}</span>
             </h2>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {features.map((feature, i) => (
+            {featuresI18n.map((feature, i) => (
               <motion.div
                 key={feature.title}
                 initial={{ opacity: 0, y: 20 }}
@@ -165,13 +154,13 @@ const Index = () => {
             transition={{ duration: 0.6 }}
             className="text-center mb-16"
           >
-            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">Voices</p>
+            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">{t("index.voices_badge")}</p>
             <h2 className="font-display text-3xl md:text-5xl font-light text-foreground">
-              What people are <span className="italic">feeling</span>
+              {t("index.voices_title_1")} <span className="italic">{t("index.voices_title_2")}</span>
             </h2>
           </motion.div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {testimonials.map((t, i) => (
+            {testimonialsI18n.map((t, i) => (
               <motion.blockquote
                 key={t.name}
                 initial={{ opacity: 0, y: 20 }}

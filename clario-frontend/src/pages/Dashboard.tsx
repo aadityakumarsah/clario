@@ -4,6 +4,7 @@ import { Mic, MicOff, Flame, TrendingUp, TrendingDown, Minus, Sparkles, PhoneOff
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import Navbar from "@/components/Navbar";
 import { useVoiceJournal } from "@/hooks/useVoiceJournal";
+import { useTranslation } from "react-i18next";
 import SessionReportModal from "@/components/SessionReportModal";
 import { listSessions, type SessionDetailData } from "@/lib/api";
 import {
@@ -21,6 +22,7 @@ const fadeUp = {
 };
 
 const Dashboard = () => {
+  const { t } = useTranslation();
   const {
     isRecording,
     isConnecting,
@@ -90,6 +92,7 @@ const Dashboard = () => {
     () => moodTrendData.some((p) => p.mood != null),
     [moodTrendData],
   );
+  const hasNoSessions = !pastSessionsLoading && !pastSessionsError && pastCards.length === 0;
 
   const headerDateLabel = useMemo(() => {
     try {
@@ -119,10 +122,10 @@ const Dashboard = () => {
             className="mb-10"
           >
             <motion.p variants={fadeUp} className="font-body text-sm text-muted-foreground">
-              Good morning — {headerDateLabel}
+              {t("dashboard.greeting")} — {headerDateLabel}
             </motion.p>
             <motion.h1 variants={fadeUp} className="font-display text-3xl md:text-4xl font-light text-foreground mt-1">
-              Your <span className="italic">journal</span>
+              {t("dashboard.title_1")} <span className="italic">{t("dashboard.title_2")}</span>
             </motion.h1>
           </motion.div>
 
@@ -132,7 +135,7 @@ const Dashboard = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="lg:col-span-2 p-8 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center min-h-[280px] relative overflow-hidden"
+              className={`${hasNoSessions ? "lg:col-span-3" : "lg:col-span-2"} p-8 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center min-h-[280px] relative overflow-hidden`}
             >
               <div className="absolute inset-0 opacity-30" style={{ background: "var(--gradient-glow)" }} />
               <div className="relative z-10 flex flex-col items-center text-center">
@@ -151,62 +154,86 @@ const Dashboard = () => {
               </div>
             </motion.div>
 
-            {/* Streak Tracker */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="p-6 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center text-center"
-            >
-              <div className="relative mb-4">
-                <svg width="100" height="100" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="4" />
-                  <motion.circle
-                    cx="50" cy="50" r="42"
-                    fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeDasharray={264}
-                    strokeDashoffset={264 - (264 * Math.min(currentStreak, 30) / 30)}
-                    initial={{ strokeDashoffset: 264 }}
-                    animate={{ strokeDashoffset: 264 - (264 * Math.min(currentStreak, 30) / 30) }}
-                    transition={{ duration: 1.2, ease: "easeOut", delay: 0.5 }}
-                    transform="rotate(-90 50 50)"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-accent" />
-                </div>
-              </div>
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-                className="font-display text-4xl font-semibold text-foreground"
+            {!hasNoSessions && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="p-6 rounded-2xl bg-card border border-border/50 flex flex-col items-center justify-center text-center"
               >
-                {currentStreak}
-              </motion.span>
-              <p className="font-body text-xs text-muted-foreground mt-1">day streak</p>
-              <p className="font-body text-xs text-muted-foreground mt-2 max-w-[11rem] leading-snug">
-                {pastSessionsLoading
-                  ? "…"
-                  : currentStreak === 0
-                    ? "Days with a saved report, in a row."
-                    : currentStreak >= 7
-                      ? "Strong streak — keep going."
-                      : "Keep logging to grow your streak."}
-              </p>
-            </motion.div>
+                <div className="relative mb-4">
+                  <svg width="100" height="100" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--border))" strokeWidth="4" />
+                    <motion.circle
+                      cx="50" cy="50" r="42"
+                      fill="none"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      strokeDasharray={264}
+                      strokeDashoffset={264 - (264 * Math.min(currentStreak, 30) / 30)}
+                      initial={{ strokeDashoffset: 264 }}
+                      animate={{ strokeDashoffset: 264 - (264 * Math.min(currentStreak, 30) / 30) }}
+                      transition={{ duration: 1.2, ease: "easeOut", delay: 0.5 }}
+                      transform="rotate(-90 50 50)"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Flame className="w-6 h-6 text-accent" />
+                  </div>
+                </div>
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.8 }}
+                  className="font-display text-4xl font-semibold text-foreground"
+                >
+                  {currentStreak}
+                </motion.span>
+                <p className="font-body text-xs text-muted-foreground mt-1">day streak</p>
+                <p className="font-body text-xs text-muted-foreground mt-2 max-w-[11rem] leading-snug">
+                  {pastSessionsLoading
+                    ? "…"
+                    : currentStreak === 0
+                      ? "Days with a saved report, in a row."
+                      : currentStreak >= 7
+                        ? "Strong streak — keep going."
+                        : "Keep logging to grow your streak."}
+                </p>
+              </motion.div>
+            )}
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.1 }}
-            className="mt-6 p-8 rounded-2xl bg-card border border-border/50"
-          >
+          {hasNoSessions ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="mt-6 p-8 rounded-2xl bg-card border border-border/50"
+            >
+              <div className="max-w-2xl">
+                <p className="font-body text-xs uppercase tracking-[0.3em] text-muted-foreground mb-3">
+                  First reflection
+                </p>
+                <h2 className="font-display text-2xl md:text-3xl font-light text-foreground mb-3">
+                  You have no saved sessions yet
+                </h2>
+                <p className="font-body text-sm text-muted-foreground leading-relaxed">
+                  Start your first voice reflection to unlock your daily summary, mood trends, streak, and past
+                  reports. Once your first report is generated, this dashboard will populate automatically.
+                </p>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="mt-6 p-8 rounded-2xl bg-card border border-border/50"
+              >
             <div className="flex flex-col gap-1 mb-6">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-accent shrink-0" />
@@ -313,15 +340,15 @@ const Dashboard = () => {
                 </div>
               </div>
             )}
-          </motion.div>
+              </motion.div>
 
-          {/* Mood Trends — last 7 local days from session reports */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-6 p-8 rounded-2xl bg-card border border-border/50"
-          >
+              {/* Mood Trends — last 7 local days from session reports */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="mt-6 p-8 rounded-2xl bg-card border border-border/50"
+              >
             <div className="mb-6">
               <h2 className="font-display text-xl font-semibold text-foreground">Mood Trends</h2>
               <p className="font-body text-sm text-muted-foreground mt-1">
@@ -386,15 +413,15 @@ const Dashboard = () => {
                 </ResponsiveContainer>
               </div>
             )}
-          </motion.div>
+              </motion.div>
 
-          {/* Past Sessions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-6"
-          >
+              {/* Past Sessions */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="mt-6"
+              >
             <h2 className="font-display text-xl font-semibold text-foreground mb-4">Past Sessions</h2>
 
             {pastSessionsLoading && (
@@ -482,7 +509,9 @@ const Dashboard = () => {
                 })}
               </div>
             )}
-          </motion.div>
+              </motion.div>
+            </>
+          )}
           {/* Call-like Full Screen UI */}
           <AnimatePresence>
             {(isRecording || isConnecting || isGeneratingReport) && (

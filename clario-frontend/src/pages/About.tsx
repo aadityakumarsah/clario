@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -16,6 +17,13 @@ const team = [
 ];
 
 const About = () => {
+  const { t } = useTranslation();
+  const techItems = [
+    { label: t("about.tech.voice.label"), desc: t("about.tech.voice.desc") },
+    { label: t("about.tech.privacy.label"), desc: t("about.tech.privacy.desc") },
+    { label: t("about.tech.adaptive.label"), desc: t("about.tech.adaptive.desc") },
+  ];
+
   return (
     <div className="min-h-screen bg-background relative">
       <div className="grain-overlay" />
@@ -30,15 +38,14 @@ const About = () => {
           className="max-w-3xl mx-auto text-center"
         >
           <motion.p variants={fadeUp} className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-6">
-            Our Mission
+            {t("about.badge")}
           </motion.p>
           <motion.h1 variants={fadeUp} className="font-display text-4xl md:text-6xl font-light text-foreground mb-8 text-balance leading-tight">
-            Improving mental clarity through{" "}
-            <span className="italic text-primary">AI-guided reflection</span>
+            {t("about.title_1")}{" "}
+            <span className="italic text-primary">{t("about.title_2")}</span>
           </motion.h1>
           <motion.p variants={fadeUp} className="font-body text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            We believe self-understanding shouldn't require a therapist's schedule or a writer's discipline. 
-            Clario meets you where you are — your voice, your pace, your truth.
+            {t("about.desc")}
           </motion.p>
         </motion.div>
       </section>
@@ -52,7 +59,7 @@ const About = () => {
             viewport={{ once: true }}
             className="font-display text-3xl font-light text-center mb-14"
           >
-            The people behind <span className="italic">Clario</span>
+            {t("about.team_title_1")} <span className="italic">{t("about.team_title_2")}</span>
           </motion.h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {team.map((member, i) => (
@@ -86,16 +93,12 @@ const About = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">Our Approach</p>
+            <p className="font-body text-xs uppercase tracking-[0.3em] text-accent mb-4">{t("about.approach_badge")}</p>
             <h2 className="font-display text-3xl font-light text-foreground mb-8">
-              Built with <span className="italic">care</span>
+              {t("about.approach_title_1")} <span className="italic">{t("about.approach_title_2")}</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-              {[
-                { label: "Voice AI", desc: "On-device speech processing with cloud-based NLP for nuanced emotional analysis." },
-                { label: "Privacy First", desc: "End-to-end encryption. Your reflections are processed but never stored in readable form." },
-                { label: "Adaptive Learning", desc: "Clario's insights evolve with you, recognizing recurring themes and growth over time." },
-              ].map((item, i) => (
+              {techItems.map((item, i) => (
                 <div key={i} className="p-5 rounded-xl bg-background border border-border/30">
                   <h4 className="font-body text-sm font-semibold text-foreground mb-2">{item.label}</h4>
                   <p className="font-body text-xs text-muted-foreground leading-relaxed">{item.desc}</p>
