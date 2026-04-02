@@ -1,14 +1,11 @@
 """Generate structured call reports from session transcripts via LangChain + Gemini."""
 from __future__ import annotations
-
 import re
 from datetime import date, datetime, timezone
 from pathlib import Path
-
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from loguru import logger
-
 from app.core.config import settings
 from app.schema.call_report import (
     CallReportData,
@@ -23,16 +20,15 @@ _CALL_REPORT_PROMPT_PATH = (
     Path(__file__).resolve().parent.parent / "ai" / "prompts" / "call_report.md"
 )
 
-
 def _load_call_report_prompt() -> str:
     return _CALL_REPORT_PROMPT_PATH.read_text(encoding="utf-8")
 
-
-def _parse_ts(ts: str) -> datetime:
+def _parse_ts(ts: str | datetime) -> datetime:
+    if isinstance(ts, datetime):
+        return ts
     if ts.endswith("Z"):
         ts = ts[:-1] + "+00:00"
     return datetime.fromisoformat(ts)
-
 
 def _count_user_words(messages: list[dict]) -> int:
     n = 0
@@ -44,7 +40,6 @@ def _count_user_words(messages: list[dict]) -> int:
             continue
         n += len(re.split(r"\s+", text))
     return n
-
 
 def _build_transcript(
     session_created: datetime,
@@ -61,8 +56,8 @@ def _build_transcript(
         text = (m.get("message") or "").strip()
         if not text:
             continue
-        created = m.get("created_at")
-        if isinstance(created, str):
+        created = m.get("createdAt") or m.get("created_at")
+        if created:
             t = _parse_ts(created)
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)
@@ -73,7 +68,6 @@ def _build_transcript(
 
     dur = duration_seconds if duration_seconds is not None else "unknown"
     return f"Session duration_seconds (from app): {dur}\n\n" + "\n".join(lines)
-
 
 def build_conversation_turns(
     session_created: datetime,
@@ -90,15 +84,13 @@ def build_conversation_turns(
         if not text:
             continue
         role = str(m.get("role", ""))
-        created = m.get("created_at")
-        if isinstance(created, str):
+        created = m.get("createdAt") or m.get("created_at")
+        if created:
             t = _parse_ts(created)
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)
-            sec = max(0, int((t - base).total_seconds()))
             created_iso = t.isoformat()
         else:
-            sec = 0
             created_iso = base.isoformat()
 
         out.append(
@@ -110,72 +102,64 @@ def build_conversation_turns(
         )
     return out
 
-
 def build_session_detail(
     session: dict,
     report: CallReportData | None,
     messages: list[dict],
 ) -> SessionDetailData:
-    created_raw = session.get("created_at")
-    if isinstance(created_raw, str):
-        session_created = _parse_ts(created_raw)
-    else:
-        session_created = datetime.now(timezone.utc)
+    created_raw = session.get("createdAt") or session.get("created_at")
+    session_created = _parse_ts(created_raw) if created_raw else datetime.now(timezone.utc)
+    
     if session_created.tzinfo is None:
         session_created = session_created.replace(tzinfo=timezone.utc)
 
     messages = [m for m in messages if (m.get("message") or "").strip()]
     conversation = build_conversation_turns(session_created, messages)
 
-    raw_dur = session.get("duration_seconds")
+    raw_dur = session.get("durationSeconds") or session.get("duration_seconds")
     duration_val = int(raw_dur) if raw_dur is not None else None
 
-    ended = session.get("ended_at")
+    ended = session.get("endedAt") or session.get("ended_at")
     ended_at = str(ended) if ended else None
 
     return SessionDetailData(
-        session_id=str(session["session_id"]),
-        user_id=str(session["user_id"]),
-        created_at=str(session["created_at"]),
+        session_id=str(session.get("sessionId") or session.get("session_id")),
+        user_id=str(session.get("userId") or session.get("user_id")),
+        created_at=str(session_created.isoformat()),
         ended_at=ended_at,
         duration_seconds=duration_val,
         report=report,
         conversation=conversation,
     )
 
-
-def get_session_detail(session_id: str, user_id: str) -> SessionDetailData | None:
+async def get_session_detail(session_id: str, user_id: str) -> SessionDetailData | None:
     """Session row + optional stored report + conversation turns."""
-    session = get_session_for_user(session_id, user_id)
+    session = await get_session_for_user(session_id, user_id)
     if not session:
         return None
 
-    messages = list_messages_for_session(session_id, user_id)
+    messages = await list_messages_for_session(session_id, user_id)
     if messages is None:
         return None
 
-    raw_report = session.get("call_report")
+    raw_report = session.get("callReport") or session.get("call_report")
     report: CallReportData | None = None
     if raw_report:
         try:
             report = CallReportData.model_validate(raw_report)
         except Exception:
-            logger.warning(
-                "get_session_detail: invalid call_report JSON | session_id={}",
-                session_id,
-            )
+            logger.warning(f"get_session_detail: invalid call_report JSON | session_id={session_id}")
 
     return build_session_detail(session, report, messages)
 
-
-def list_sessions_detail(
+async def list_sessions_detail(
     user_id: str,
     *,
     session_date: date | None = None,
     tz_offset_minutes: int = 0,
 ) -> list[SessionDetailData] | None:
-    """All sessions for the user with report + conversation (same shape as GET one session)."""
-    sessions = list_sessions_for_user(
+    """All sessions for the user with report + conversation."""
+    sessions = await list_sessions_for_user(
         user_id,
         session_date=session_date,
         tz_offset_minutes=tz_offset_minutes,
@@ -185,43 +169,32 @@ def list_sessions_detail(
 
     out: list[SessionDetailData] = []
     for session in sessions:
-        sid = str(session["session_id"])
-        messages = list_messages_for_session(sid, user_id)
+        sid = str(session.get("sessionId") or session.get("session_id"))
+        messages = await list_messages_for_session(sid, user_id)
         if messages is None:
-            logger.warning(
-                "list_sessions_detail: skip session (messages fetch failed) | session_id={}",
-                sid,
-            )
             continue
 
-        raw_report = session.get("call_report")
+        raw_report = session.get("callReport") or session.get("call_report")
         report: CallReportData | None = None
         if raw_report:
             try:
                 report = CallReportData.model_validate(raw_report)
             except Exception:
-                logger.warning(
-                    "list_sessions_detail: invalid call_report JSON | session_id={}",
-                    sid,
-                )
+                logger.warning(f"list_sessions_detail: invalid call_report JSON | session_id={sid}")
 
         out.append(build_session_detail(session, report, messages))
     return out
 
-
-def generate_call_report(
+async def generate_call_report(
     session_id: str,
     user_id: str,
 ) -> tuple[CallReportData, dict, list[dict]] | None:
-    """
-    Load transcript, run structured LLM, return report + session row + messages.
-    Messages are non-empty only.
-    """
-    session = get_session_for_user(session_id, user_id)
+    """Load transcript, run structured LLM, return report."""
+    session = await get_session_for_user(session_id, user_id)
     if not session:
         return None
 
-    messages = list_messages_for_session(session_id, user_id)
+    messages = await list_messages_for_session(session_id, user_id)
     if messages is None:
         return None
 
@@ -229,15 +202,12 @@ def generate_call_report(
     if not messages:
         return None
 
-    created_raw = session.get("created_at")
-    if isinstance(created_raw, str):
-        session_created = _parse_ts(created_raw)
-    else:
-        session_created = datetime.now(timezone.utc)
+    created_raw = session.get("createdAt") or session.get("created_at")
+    session_created = _parse_ts(created_raw) if created_raw else datetime.now(timezone.utc)
     if session_created.tzinfo is None:
         session_created = session_created.replace(tzinfo=timezone.utc)
 
-    raw_dur = session.get("duration_seconds")
+    raw_dur = session.get("durationSeconds") or session.get("duration_seconds")
     duration_int = int(raw_dur) if raw_dur is not None else 0
 
     user_words = _count_user_words(messages)
@@ -259,16 +229,13 @@ def generate_call_report(
 
     chain = prompt | structured
     try:
+        # LangChain invoke is synchronous for this setup, but service is async
         llm_part = chain.invoke({"transcript": transcript})
     except Exception:
-        logger.exception("call report LLM invoke failed | session_id={}", session_id)
+        logger.exception(f"call report LLM invoke failed | session_id={session_id}")
         return None
 
-    dumped = (
-        llm_part.model_dump()
-        if isinstance(llm_part, CallReportLLMFields)
-        else llm_part
-    )
+    dumped = llm_part.model_dump() if isinstance(llm_part, CallReportLLMFields) else llm_part
     report = CallReportData(
         session_id=session_id,
         duration_seconds=duration_int,

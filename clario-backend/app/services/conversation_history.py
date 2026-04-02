@@ -1,115 +1,60 @@
-"""Conversation rows — PostgREST calls for conversation_history table.
-
-Run supabase/sql/conversation_history.sql in the Supabase SQL editor first.
-"""
-from typing import TypedDict
-
+"""Conversation history — Prisma calls for conversation_history table."""
 from loguru import logger
+from app.core.prisma import db
 
-from app.core.supabase import postgrest
-from app.services.voice_session import get_session_for_user
-
-TABLE = "conversation_history"
-_VALID_ROLES = frozenset({"user", "assistant", "system"})
-
-
-class ConversationRow(TypedDict):
-    session_id: str
-    user_id: str
-    role: str
-    message: str
-
-
-def _validate_and_build_payload(
-    rows: list[ConversationRow],
-) -> list[dict[str, str]] | None:
-    """
-    Build PostgREST body from client rows. Returns None if rows are invalid
-    (mixed session, bad role). Empty list means only blank messages after trim.
-    """
-    sid, uid = rows[0]["session_id"], rows[0]["user_id"]
-    payload: list[dict[str, str]] = []
-    for i, row in enumerate(rows):
-        if row["session_id"] != sid or row["user_id"] != uid:
-            logger.warning(
-                "bulk_insert: row {} mixes session_id or user_id",
-                i,
-            )
-            return None
-        role = row["role"]
-        if role not in _VALID_ROLES:
-            logger.warning("bulk_insert: invalid role at row {}", i)
-            return None
-        text = (row["message"] or "").strip()
-        if not text:
-            continue
-        payload.append(
-            {
-                "session_id": sid,
-                "user_id": uid,
+async def save_message(
+    session_id: str,
+    user_id: str,
+    role: str,
+    message: str,
+) -> bool:
+    """Insert a single message (user or assistant)."""
+    try:
+        await db.conversationhistory.create(
+            data={
+                "sessionId": session_id,
+                "userId": user_id,
                 "role": role,
-                "message": text,
+                "message": message,
             }
         )
-    return payload
-
-
-def bulk_insert_messages(rows: list[ConversationRow]) -> bool:
-    """Insert all rows in one PostgREST request; validates session ownership once."""
-    if not rows:
         return True
+    except Exception as e:
+        logger.error(f"save_message failed: {e}")
+        return False
 
-    sid, uid = rows[0]["session_id"], rows[0]["user_id"]
-    if not get_session_for_user(sid, uid):
-        logger.warning(
-            "bulk_insert: session not found or forbidden | session_id={}",
-            sid,
+async def list_messages_for_session(session_id: str, user_id: str) -> list[dict] | None:
+    """Return all conversation turns for a session, oldest first."""
+    try:
+        messages = await db.conversationhistory.find_many(
+            where={
+                "sessionId": session_id,
+                "userId": user_id,
+            },
+            order={"createdAt": "asc"}
         )
-        return False
-
-    payload = _validate_and_build_payload(rows)
-    if payload is None:
-        return False
-    if not payload:
-        return True
-
-    status, data = postgrest(
-        "POST",
-        TABLE,
-        body=payload,
-        prefer="return=representation",
-    )
-    if status in (200, 201) and data is not None:
-        return True
-
-    logger.warning(
-        "bulk_insert PostgREST POST {} → {} body={}",
-        TABLE,
-        status,
-        data,
-    )
-    return False
-
-
-def list_messages_for_session(session_id: str, user_id: str) -> list[dict] | None:
-    """Return conversation rows for session_id + user_id, oldest first. None on PostgREST error."""
-    status, data = postgrest(
-        "GET",
-        TABLE,
-        params={
-            "session_id": f"eq.{session_id}",
-            "user_id": f"eq.{user_id}",
-            "select": "role,message,created_at",
-            "order": "created_at.asc",
-        },
-    )
-    if status == 200 and isinstance(data, list):
-        return data
-    return None
-
-
-def get_messages_for_session(session_id: str, user_id: str) -> list[dict] | None:
-    """Return conversation rows for the session, oldest first, or None if not owned."""
-    if not get_session_for_user(session_id, user_id):
+        return [m.model_dump() for m in messages]
+    except Exception as e:
+        logger.error(f"list_messages_for_session failed: {e}")
         return None
-    return list_messages_for_session(session_id, user_id)
+
+async def bulk_insert_messages(messages: list[dict]) -> bool:
+    """Insert multiple messages efficiently."""
+    try:
+        # Prisma Python doesn't have a very clean bulk create for different objects usually,
+        # but for same model it might. We'll use a transaction.
+        async with db.batch_() as batcher:
+            for msg in messages:
+                batcher.conversationhistory.create(
+                    data={
+                        "sessionId": msg["session_id"],
+                        "userId": msg["user_id"],
+                        "role": msg["role"],
+                        "message": msg["message"],
+                    }
+                )
+            await batcher.commit()
+        return True
+    except Exception as e:
+        logger.error(f"bulk_insert_messages failed: {e}")
+        return False

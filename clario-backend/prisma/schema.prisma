@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-py"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  username  String?  @unique
+  fullName  String?
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings     UserSetting?
+  sessions     VoiceSession[]
+  conversations ConversationHistory[]
+
+  @@map("users")
+}
+
+model UserSetting {
+  userId               String   @id @map("user_id")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                 String   @default("")
+  dailyReminder        Boolean  @default(true) @map("daily_reminder")
+  streakNotifications  Boolean  @default(true) @map("streak_notifications")
+  weeklyDigest         Boolean  @default(false) @map("weekly_digest")
+  reminderTime         String   @default("08:00") @map("reminder_time")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("user_settings")
+}
+
+model VoiceSession {
+  sessionId       String   @id @default(uuid()) @map("session_id")
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now()) @map("created_at")
+  endedAt         DateTime? @map("ended_at")
+  durationSeconds Int?     @map("duration_seconds")
+  callReport      Json?    @map("call_report")
+
+  conversations   ConversationHistory[]
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("voice_sessions")
+}
+
+model ConversationHistory {
+  id        String   @id @default(uuid())
+  sessionId String   @map("session_id")
+  session   VoiceSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String   // 'user', 'assistant', 'system'
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId, createdAt(sort: Asc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("conversation_history")
+}

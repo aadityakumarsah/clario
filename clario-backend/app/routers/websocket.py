@@ -4,10 +4,8 @@ import json
 import time
 import traceback
 from typing import Optional
-
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from loguru import logger
-
 from app.core.auth import get_current_user_from_token
 from app.core.config import settings
 from app.services import conversation_history
@@ -16,9 +14,8 @@ from app.services.gemini_live import GeminiLive
 
 websocket_router = APIRouter(prefix="/websocket", tags=["WebSocket"])
 
-
 def _merge_stream_transcript(previous: str, chunk: str) -> str:
-    """Merge streaming transcription (cumulative strings or small deltas)."""
+    """Merge streaming transcription."""
     if not chunk:
         return previous
     if not previous:
@@ -29,30 +26,22 @@ def _merge_stream_transcript(previous: str, chunk: str) -> str:
         return chunk
     return previous + chunk
 
-
 def _playback_interrupt_noop() -> None:
-    """Gemini Live callback when model audio is interrupted (client gets JSON separately)."""
     return
 
-
 async def _persist_conversation_outbox(
-    messages: list[conversation_history.ConversationRow],
+    messages: list[dict],
 ) -> None:
     if not messages:
         return
-    batch = list(messages)
     try:
-        ok = await asyncio.to_thread(conversation_history.bulk_insert_messages, batch)
+        ok = await conversation_history.bulk_insert_messages(messages)
         if ok:
-            logger.info("Saved {} conversation row(s) in one bulk insert", len(batch))
+            logger.info(f"Saved {len(messages)} conversation row(s) in one bulk insert")
         else:
-            logger.warning(
-                "Bulk insert failed ({} row(s) not persisted)",
-                len(batch),
-            )
+            logger.warning(f"Bulk insert failed ({len(messages)} row(s) not persisted)")
     except Exception as e:
-        logger.warning("Bulk insert error: {}", e)
-
+        logger.warning(f"Bulk insert error: {e}")
 
 async def _try_bind_session_from_config(
     metadata: dict,
@@ -64,50 +53,36 @@ async def _try_bind_session_from_config(
     raw_sid = metadata.get("session_id")
     if not raw_sid or not user_id:
         return
-    row = await asyncio.to_thread(
-        voice_session.get_session_for_user,
-        str(raw_sid),
-        user_id,
-    )
+    row = await voice_session.get_session_for_user(str(raw_sid), user_id)
     if row:
         session_holder["id"] = str(raw_sid)
         if voice_timing.get("started_monotonic") is None:
             voice_timing["started_monotonic"] = time.monotonic()
     else:
-        logger.warning("Config session_id not found or forbidden: {}", raw_sid)
-
+        logger.warning(f"Config session_id not found or forbidden: {raw_sid}")
 
 async def _finalize_voice_session(
     session_id: str,
     user_id: str,
     voice_timing: dict[str, float | None],
 ) -> None:
-    """Persist ended_at + duration_seconds on the voice_sessions row (live WS lifetime)."""
+    """Persist ended_at + duration_seconds."""
     start = voice_timing.get("started_monotonic")
     if start is None:
         return
     duration_s = max(0, int(time.monotonic() - start))
     try:
-        ok = await asyncio.to_thread(
-            voice_session.end_session,
+        ok = await voice_session.end_session(
             session_id,
             user_id,
             duration_s,
         )
         if ok:
-            logger.info(
-                "Voice session ended | session_id={} duration_seconds={}",
-                session_id,
-                duration_s,
-            )
+            logger.info(f"Voice session ended | session_id={session_id} duration_seconds={duration_s}")
         else:
-            logger.warning(
-                "Could not update voice_sessions end | session_id={}",
-                session_id,
-            )
+            logger.warning(f"Could not update voice_sessions end | session_id={session_id}")
     except Exception as e:
-        logger.warning("end_session error: {}", e)
-
+        logger.warning(f"end_session error: {e}")
 
 @websocket_router.websocket("/gemini/live")
 async def websocket_endpoint(
@@ -117,7 +92,7 @@ async def websocket_endpoint(
     voice: Optional[str] = Query(default=None),
     lang: Optional[str] = Query(default=None),
 ):
-    """Gemini Live bridge (JWT ?token=; optional ?persona= ?voice= ?lang=en|ne)."""
+    """Gemini Live bridge."""
     if not token:
         await websocket.close(code=4001, reason="Missing auth token")
         return
@@ -128,26 +103,20 @@ async def websocket_endpoint(
         return
 
     await websocket.accept()
-    logger.info(
-        "WebSocket connection accepted for user {} | persona={} | voice={} | lang={}",
-        user.get("id"),
-        persona,
-        voice,
-        lang,
-    )
+    logger.info(f"WebSocket accepted for user {user.get('id')}")
 
     user_id = str(user.get("id") or "")
     session_holder: dict[str, str | None] = {"id": None}
     voice_timing: dict[str, float | None] = {"started_monotonic": None}
     transcript_buffers: dict[str, str] = {"user": "", "assistant": ""}
-    pending_messages: list[conversation_history.ConversationRow] = []
+    pending_messages: list[dict] = []
 
     def _enqueue_conversation_row(role: str, text: str) -> None:
         sid = session_holder.get("id")
         if not sid or not user_id:
             return
         msg = str(text).strip()
-        if not msg or role not in ("user", "assistant", "system"):
+        if not msg:
             return
         pending_messages.append(
             {
@@ -209,7 +178,6 @@ async def websocket_endpoint(
             while True:
                 message = await websocket.receive()
                 if message["type"] == "websocket.disconnect":
-                    logger.info("WebSocket disconnected")
                     disconnect_event.set()
                     if session_task and not session_task.done():
                         session_task.cancel()
@@ -243,23 +211,9 @@ async def websocket_endpoint(
                             session_holder=session_holder,
                             voice_timing=voice_timing,
                         )
-                        logger.info(
-                            "Client session config frame | session_id={} | metadata={}",
-                            meta.get("session_id"),
-                            meta,
-                        )
-                    else:
-                        logger.info(
-                            "Client session config frame | session_id=(none) | metadata={}",
-                            payload.get("metadata", payload),
-                        )
                     continue
 
                 if msg_type == "image":
-                    logger.info(
-                        "Received image chunk from client: {} base64 chars",
-                        len(payload["data"]),
-                    )
                     image_data = base64.b64decode(payload["data"])
                     await video_input_queue.put(image_data)
                     continue
@@ -273,13 +227,7 @@ async def websocket_endpoint(
                     continue
 
                 await text_input_queue.put(raw_text)
-        except WebSocketDisconnect:
-            logger.info("WebSocket disconnected")
-            disconnect_event.set()
-            if session_task and not session_task.done():
-                session_task.cancel()
-        except Exception as e:
-            logger.error("Error receiving from client: {}", e)
+        except Exception:
             disconnect_event.set()
             if session_task and not session_task.done():
                 session_task.cancel()
@@ -312,8 +260,6 @@ async def websocket_endpoint(
                     elif et in ("turn_complete", "interrupted"):
                         _flush_stream_buffers_to_outbox()
                 await _send_json_safe(event)
-        except asyncio.CancelledError:
-            raise
         finally:
             _flush_stream_buffers_to_outbox()
 
@@ -322,29 +268,13 @@ async def websocket_endpoint(
 
     try:
         await session_task
-    except asyncio.CancelledError:
-        logger.debug("Gemini session task cancelled (client gone)")
-    except Exception as e:
-        logger.error(
-            "Error in Gemini session: {}: {}\n{}",
-            type(e).__name__,
-            e,
-            traceback.format_exc(),
-        )
     finally:
         receive_task.cancel()
-        try:
-            await receive_task
-        except asyncio.CancelledError:
-            pass
-
         await _persist_conversation_outbox(pending_messages)
-
         sid = session_holder.get("id")
         if sid and user_id:
             await _finalize_voice_session(sid, user_id, voice_timing)
-
         try:
             await websocket.close()
-        except Exception:
+        except:
             pass
